@@ -5,6 +5,12 @@
 final class ToolName {
   const ToolName._(this.value);
 
+  /// [name], written in code, as a tool name; one that breaks the rule is
+  /// an [ArgumentError] naming it.
+  factory ToolName.of(String name) =>
+      parse(name) ??
+      (throw ArgumentError.value(name, 'name', 'not 1 to 64 of a-zA-Z0-9_-'));
+
   /// [raw] as a tool name, or null when it breaks the rule.
   static ToolName? parse(String raw) =>
       _rule.hasMatch(raw) ? ToolName._(raw) : null;

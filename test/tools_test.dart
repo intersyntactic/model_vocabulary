@@ -25,6 +25,21 @@ void main() {
       }
     });
 
+    test('of builds a name written in code, and names a bad one', () {
+      expect(
+        ToolName.of('list_case_folder'),
+        ToolName.parse('list_case_folder'),
+      );
+      expect(
+        () => ToolName.of('list.case'),
+        throwsA(
+          isA<ArgumentError>()
+              .having((e) => e.invalidValue, 'invalidValue', 'list.case')
+              .having((e) => e.message, 'message', contains('a-zA-Z0-9_-')),
+        ),
+      );
+    });
+
     test('is equal by its text', () {
       expect(ToolName.parse('a'), ToolName.parse('a'));
       expect(ToolName.parse('a'), isNot(ToolName.parse('b')));
