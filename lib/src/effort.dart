@@ -10,13 +10,17 @@ import 'package:checked_json/checked_json.dart';
 ///
 /// A request with no effort at all is the provider's own default; that is not
 /// a level, so it is a null where this is wanted, never a value.
-extension type const Effort(String wire) {
-  static const low = Effort('low');
-  static const medium = Effort('medium');
-  static const high = Effort('high');
-  static const xhigh = Effort('xhigh');
-  static const max = Effort('max');
-  static const ultra = Effort('ultra');
+final class Effort {
+  const Effort._(this.wire);
+
+  final String wire;
+
+  static const low = Effort._('low');
+  static const medium = Effort._('medium');
+  static const high = Effort._('high');
+  static const xhigh = Effort._('xhigh');
+  static const max = Effort._('max');
+  static const ultra = Effort._('ultra');
 
   /// The levels this code knows, lowest first.
   static const known = [low, medium, high, xhigh, max, ultra];
@@ -24,7 +28,7 @@ extension type const Effort(String wire) {
   /// [wire] as a level: any lowercase word, the way every provider spells
   /// them. Anything else is null, not a level.
   static Effort? parse(Object? wire) =>
-      wire is String && _word.hasMatch(wire) ? Effort(wire) : null;
+      wire is String && _word.hasMatch(wire) ? Effort._(wire) : null;
 
   static final _word = RegExp(r'^[a-z]+$');
 
@@ -34,6 +38,15 @@ extension type const Effort(String wire) {
     final i = known.indexOf(this);
     return i < 0 ? known.length : i;
   }
+
+  @override
+  bool operator ==(Object other) => other is Effort && other.wire == wire;
+
+  @override
+  int get hashCode => wire.hashCode;
+
+  @override
+  String toString() => wire;
 }
 
 /// What one model takes: its [levels], lowest first, and [byDefault], the
