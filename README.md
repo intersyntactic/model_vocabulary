@@ -1,8 +1,13 @@
 # is_model_vocabulary
 
-The words a call to a language model is described in: a tool's name and how
-it is offered, how hard the model is asked to work, and why it stopped. No
+The words a call to a language model is described in: the tools it is
+offered and the calls it proposes, the turns of the conversation, what it
+replies and spends, how hard it is asked to work, and why it stopped. No
 provider's JSON, and no `dart:io`. It depends only on `checked_json`.
+
+The model only ever *proposes* a call. A driver returns the proposal, and
+the caller runs the action (after the airlock decides) and sends the result
+back as a turn. No driver runs a tool.
 
 ```dart
 import 'package:is_model_vocabulary/is_model_vocabulary.dart';
@@ -17,11 +22,32 @@ void main() {
 ## What it has
 
 - **`ToolName`**: the name a tool is offered under, 1 to 64 of `a-zA-Z0-9_-`,
-  the rule both the Messages API and the Responses API impose. Made only
-  with `ToolName.parse`, which returns null for a name that breaks it.
+  the rule both the Messages API and the Responses API impose. Made with
+  `ToolName.of` for a name written in code, or `ToolName.parse`, which
+  returns null for a name that breaks it.
 - **`OfferedTool`**: a tool as the model is shown it, its `name`,
-  `description` and `inputSchema`, with a strict `fromJson` that refuses a
-  key it doesn't expect.
+  `description` and `inputSchema`.
+- **`ToolCall`**: one call the model proposed, with its `ToolCallId` (the
+  provider's id, echoed back, so parsed loosely), a `CalledToolName` and
+  its `ToolInput`. The name is `WellFormedName` or `IllFormedName`, never
+  refused: a model can call a tool it wasn't offered, and the caller
+  answers that like any other unknown name. The input is the JSON text the
+  driver encoded once, passed on byte for byte.
+- **`ModelTurn`**: `UserSaid`, `AgentSaid`, `AgentCalledTools` (at least
+  one call, with an optional `ProviderContinuation`) or `ToolAnswered`,
+  whose `ToolResult` is `ToolRan`, `ToolFailed` or `ToolRefused`.
+  `ToolRefused` means nothing ran.
+- **`ModelRequest`**: the `tools` offered and the `turns` so far, encoded
+  to the `request` text the airlock hashes. Equal requests encode to equal
+  bytes, so a replay matches.
+- **`ModelReply`**: `FinishedReply`, `CutOffReply`, or `ProposedToolCalls`
+  (the model stopped to have tools run), each with its `ModelUsage`.
+- **`ProviderContinuation`**: provider items a call must be followed by,
+  such as encrypted reasoning, echoed back unchanged. It is the one part of
+  a request nobody but the provider can read: the airlock's hash keeps it
+  intact, but an audit of what was sent can't read what it says.
+
+Every `fromJson` is strict: a key it doesn't expect is refused and named.
 - **`Effort`**: how hard a model is asked to work. Open, because providers
   add levels; `Effort.known` holds the ones this code knows, lowest first.
 - **`ModelEfforts`**: the levels one model takes, and the one it works at
