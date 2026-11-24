@@ -1,9 +1,9 @@
 name: is_model_vocabulary
 description: >-
-  The words a call to a language model is described in: a tool's name and
-  how it is offered, how hard the model is asked to work, and why it
-  stopped. No provider's JSON, and no dart:io.
-version: 0.1.0
+  The words a call to a language model is described in: the tools it is
+  offered, the calls it proposes, the turns of the conversation, what it
+  replies, and why it stopped. No provider's JSON, and no dart:io.
+version: 0.2.0
 repository: https://github.com/intersyntactic/model_vocabulary
 
 environment:

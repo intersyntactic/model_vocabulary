@@ -34,7 +34,9 @@ bool _allowedPackage(String name) =>
 bool _allowed(String target) {
   final uri = Uri.parse(target);
   return switch (uri.scheme) {
-    'dart' => target == 'dart:core',
+    // dart:convert does no IO, and a model request is JSON text whose
+    // exact bytes the airlock hashes.
+    'dart' => target == 'dart:core' || target == 'dart:convert',
     'package' => _allowedPackage(uri.pathSegments.first),
     '' => !uri.isAbsolute && !uri.pathSegments.contains('..'),
     _ => false,
@@ -42,7 +44,8 @@ bool _allowed(String target) {
 }
 
 void main() {
-  test('the vocabulary imports only dart:core and other vocabularies', () {
+  test('the vocabulary imports only dart:core, dart:convert and other '
+      'vocabularies', () {
     final violations = <String>[];
     for (final file in Directory(
       'lib',
