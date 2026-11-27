@@ -51,11 +51,22 @@ void main() {
         expect(ToolInput.parse(raw), isNull, reason: raw);
       }
     });
+
+    test('refuses a key named twice and an integer past 2^53 - 1', () {
+      for (final raw in [
+        '{"path":"a","path":"b"}',
+        '{"o":{"k":1,"\\u006b":2}}',
+        '{"n":9007199254740993}',
+      ]) {
+        expect(ToolInput.parse(raw), isNull, reason: raw);
+      }
+    });
   });
 
   test('ProviderContinuation takes only JSON', () {
     expect(ProviderContinuation.parse('[{"type":"reasoning"}]'), isNotNull);
     expect(ProviderContinuation.parse('not json'), isNull);
+    expect(ProviderContinuation.parse('[{"id":"a","id":"b"}]'), isNull);
   });
 
   group('ModelRequest', () {
@@ -159,6 +170,13 @@ void main() {
           reason: bad,
         );
       }
+    });
+
+    test('refuses a key named twice', () {
+      expect(
+        () => ModelRequest.decode('{"tools":[],"turns":[],"turns":[]}'),
+        throwsFormatException,
+      );
     });
 
     test('refuses the old array of {role, content}', () {

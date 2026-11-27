@@ -186,10 +186,11 @@ final class ModelRequest {
 
   /// [text] read back; a [FormatException] names what is wrong.
   factory ModelRequest.decode(String text) {
-    final j = objectOnly(jsonDecode(text), 'a model request', const {
-      'tools',
-      'turns',
-    });
+    final j = objectOnly(
+      decodeJsonRefusingDuplicateKeysAndUnsafeIntegers(text),
+      'a model request',
+      const {'tools', 'turns'},
+    );
     return ModelRequest(
       tools: [for (final t in j.objects('tools')) OfferedTool.fromJson(t)],
       turns: [for (final t in j.list('turns')) ModelTurn.fromJson(t)],
