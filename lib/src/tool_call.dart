@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:checked_json/checked_json.dart';
 
 import 'names.dart';
@@ -81,9 +79,8 @@ final class ToolInput {
   /// [text] as a call's input, or null unless it is a JSON object.
   static ToolInput? parse(String text) {
     try {
-      return JsonObject.parse(jsonDecode(text)) == null
-          ? null
-          : ToolInput._(text);
+      JsonObject.decode(text);
+      return ToolInput._(text);
     } on FormatException {
       return null;
     }
@@ -114,7 +111,7 @@ final class ProviderContinuation {
   /// [text] as a continuation, or null unless it is JSON.
   static ProviderContinuation? parse(String text) {
     try {
-      jsonDecode(text);
+      decodeJsonRefusingDuplicateKeysAndUnsafeIntegers(text);
       return ProviderContinuation._(text);
     } on FormatException {
       return null;

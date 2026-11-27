@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- **Breaking:** on `checked_json` ^0.3.0. `ToolInput.parse`,
+  `ProviderContinuation.parse` and `ModelRequest.decode` refuse text that
+  names a key twice in one object, or has an integer past 2^53 - 1, where
+  they used to keep the last value without a word.
+
 ## 0.2.0
 
 - The tools vocabulary of
