@@ -7,6 +7,8 @@
 library;
 
 export 'src/effort.dart';
+export 'src/model_call.dart';
+export 'src/model_names.dart' show ModelAndSignIn, ModelName, ModelSignInName;
 export 'src/model_reply.dart';
 export 'src/model_turn.dart';
 export 'src/names.dart';

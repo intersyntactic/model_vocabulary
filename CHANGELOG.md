@@ -17,6 +17,15 @@
   before.
 - A 0.4 reader refuses `namedTools` and the new turn, so anything that reads
   a request moves to 0.5 before any loop writes a named tool.
+- From `is_effects`: `ModelSignInName`, `ModelName`, `ModelAndSignIn`, the
+  `AsksTheModel` interface (no longer marking itself `CarriesOutActions`),
+  and the envelope sent to it, now a `ModelCall` class. Each reads and
+  writes JSON the way this package does: `ModelAndSignIn` and `ModelCall`
+  have `toJson` and a strict `fromJson`, and the two names are written as
+  their strings and read with `parse`. Unlike `is_effects`'
+  `decodeModelCall`, `ModelCall.fromJson` refuses a key it doesn't expect.
+- Depends on `is_action_outcome_vocabulary` ^0.1.0, for the `Outcome` and
+  `Report` that `AsksTheModel` speaks in.
 
 ## 0.4.0
 
