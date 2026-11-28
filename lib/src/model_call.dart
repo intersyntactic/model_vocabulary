@@ -29,7 +29,8 @@ final class ModelCall {
   });
 
   /// [json] as a model call; a missing field, a key it doesn't expect, or a
-  /// name that breaks its rule is a [FormatException] naming the field.
+  /// name that breaks its rule is a [FormatException] naming the field. So
+  /// a field added here must reach every driver before anything sends it.
   factory ModelCall.fromJson(Object? json) {
     final j = objectOnly(json, 'a model call', const {
       'signIn',

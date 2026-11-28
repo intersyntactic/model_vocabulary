@@ -23,7 +23,7 @@
   writes JSON the way this package does: `ModelAndSignIn` and `ModelCall`
   have `toJson` and a strict `fromJson`, and the two names are written as
   their strings and read with `parse`. Unlike `is_effects`'
-  `decodeModelCall`, `ModelCall.fromJson` refuses a key it doesn't expect.
+  `decodeModelCall`, `ModelCall.fromJson` refuses a key it doesn't expect, so if `ModelCall` ever gains a field, the drivers must be deployed before the airlock sends it.
 - Depends on `is_action_outcome_vocabulary` ^0.1.0, for the `Outcome` and
   `Report` that `AsksTheModel` speaks in.
 
