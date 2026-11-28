@@ -203,12 +203,12 @@ void main() {
       );
 
       test('are the JSON the design names', () {
-        final j = jsonDecode(named.encode());
-        expect((j as Map)['namedTools'], [
+        final j = JsonObject.decode(named.encode());
+        expect(j.objects('namedTools'), [
           tool('read_comments').toJson(),
           tool('read_equations').toJson(),
         ]);
-        expect((j['turns'] as List).last, {
+        expect(j.objects('turns').last, {
           'kind': 'namedToolsDefined',
           'names': ['read_comments'],
         });
@@ -243,15 +243,20 @@ void main() {
       });
 
       test('refuse defining a tool not known only by name', () {
+        const go = UserSaid('go');
         for (final turns in [
           [
+            go,
             NamedToolsDefined([ToolName.of('load_tools')]),
           ],
           [
+            go,
             NamedToolsDefined([ToolName.of('nowhere')]),
           ],
           [
+            go,
             NamedToolsDefined([ToolName.of('read_comments')]),
+            go,
             NamedToolsDefined([ToolName.of('read_comments')]),
           ],
         ]) {
@@ -261,19 +266,103 @@ void main() {
               namedTools: [tool('read_comments')],
               turns: turns,
             ),
-            throwsArgumentError,
+            throwsA(
+              isA<ArgumentError>().having(
+                (e) => e.message,
+                'message',
+                contains('not a tool known only by name'),
+              ),
+            ),
           );
         }
         expect(
           () => ModelRequest.decode(
-            '{"tools":[],"turns":[{"kind":"namedToolsDefined",'
-            '"names":["x"]}]}',
+            '{"tools":[],"turns":[{"kind":"user","text":"go"},'
+            '{"kind":"namedToolsDefined","names":["x"]}]}',
           ),
           throwsFormatException,
         );
       });
 
-      test('refuse defining none', () {
+      test('are defined only where a user message could go', () {
+        final defined = NamedToolsDefined([ToolName.of('read_comments')]);
+        final loadCall = AgentCalledTools(
+          text: '',
+          calls: [call('toolu_01A', 'load_tools', '{}')],
+        );
+        final answer = ToolAnswered(
+          callId: ToolCallId.parse('toolu_01A')!,
+          result: const ToolRan('loaded'),
+        );
+        ModelRequest at(List<ModelTurn> turns) => ModelRequest(
+          tools: [tool('load_tools')],
+          namedTools: [tool('read_comments')],
+          turns: turns,
+        );
+
+        expect(
+          at([const UserSaid('go'), loadCall, answer, defined]),
+          isNotNull,
+        );
+        for (final turns in [
+          [defined],
+          [const UserSaid('go'), const AgentSaid('ok'), defined],
+          [const UserSaid('go'), loadCall, defined, answer],
+          [
+            const UserSaid('go'),
+            AgentCalledTools(
+              text: '',
+              calls: [
+                call('toolu_01A', 'load_tools', '{}'),
+                call('toolu_01B', 'load_tools', '{}'),
+              ],
+            ),
+            answer,
+            defined,
+          ],
+        ]) {
+          expect(() => at(turns), throwsArgumentError, reason: '$turns');
+        }
+      });
+
+      test('may still be called, and the call is kept', () {
+        expect(
+          ModelRequest(
+            tools: [],
+            namedTools: [tool('read_comments')],
+            turns: [
+              const UserSaid('go'),
+              AgentCalledTools(
+                text: '',
+                calls: [call('toolu_01A', 'read_comments', '{}')],
+              ),
+            ],
+          ).turns,
+          hasLength(2),
+        );
+      });
+
+      test('refuse defining none, or one name twice', () {
+        expect(
+          () => NamedToolsDefined([
+            ToolName.of('read_comments'),
+            ToolName.of('read_comments'),
+          ]),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('listed once'),
+            ),
+          ),
+        );
+        expect(
+          () => ModelTurn.fromJson({
+            'kind': 'namedToolsDefined',
+            'names': ['a', 'a'],
+          }),
+          throwsFormatException,
+        );
         expect(() => NamedToolsDefined([]), throwsArgumentError);
         expect(
           () => ModelTurn.fromJson({

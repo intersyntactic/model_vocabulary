@@ -11,8 +11,12 @@
   conversation rather than by changing the lists, so a driver can add them
   without editing what it already sent. Neither grants anything.
 - `ModelRequest` refuses a name offered twice, and a `NamedToolsDefined`
-  naming a tool not still known only by name. A request with no named tools
-  encodes to the same bytes as before.
+  naming a tool not still known only by name, listing one twice, or coming
+  anywhere but right after the person spoke or a tool answered with every
+  call answered. A request with no named tools encodes to the same bytes as
+  before.
+- A 0.4 reader refuses `namedTools` and the new turn, so anything that reads
+  a request moves to 0.5 before any loop writes a named tool.
 
 ## 0.4.0
 

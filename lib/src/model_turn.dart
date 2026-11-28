@@ -132,8 +132,10 @@ sealed class ModelTurn {
             ToolName.parse(n) ??
                 (throw JsonFieldException('names', 'tool names')),
         ];
-        if (names.isEmpty) throw JsonFieldException('names', 'not empty');
-        return NamedToolsDefined(names);
+        return switch (_namesProblem(names)) {
+          null => NamedToolsDefined(names),
+          final problem => throw JsonFieldException('names', problem),
+        };
       default:
         throw JsonFieldException(
           'kind',
@@ -184,16 +186,29 @@ final class ToolAnswered extends ModelTurn {
 /// a tool may do is still the airlock's to decide.
 final class NamedToolsDefined extends ModelTurn {
   NamedToolsDefined(List<ToolName> names)
-    : names = names.isEmpty
-          ? throw ArgumentError.value(names, 'names', 'no names')
-          : List.unmodifiable(names);
+    : names = switch (_namesProblem(names)) {
+        null => List.unmodifiable(names),
+        final problem => throw ArgumentError.value(names, 'names', problem),
+      };
 
   final List<ToolName> names;
 }
 
+/// What is wrong with [names] as the tools one [NamedToolsDefined] defines,
+/// or null when nothing is: there is at least one, and none twice.
+String? _namesProblem(List<ToolName> names) {
+  if (names.isEmpty) return 'not empty';
+  final seen = <ToolName>{};
+  for (final n in names) {
+    if (!seen.add(n)) return '$n listed once';
+  }
+  return null;
+}
+
 /// What is wrong with offering [tools] in full and [namedTools] by name only
 /// across [turns], or null when nothing is: each name is offered once, and a
-/// [NamedToolsDefined] defines only a tool still known by name alone.
+/// [NamedToolsDefined] defines only a tool still known by name alone, right
+/// after the person spoke or a tool answered, with no call left unanswered.
 String? _disclosureProblem(
   List<OfferedTool> tools,
   List<OfferedTool> namedTools,
@@ -204,12 +219,31 @@ String? _disclosureProblem(
     if (!seen.add(t.name)) return '${t.name} is offered twice';
   }
   final stillNamed = {for (final t in namedTools) t.name};
+  final unanswered = <ToolCallId>{};
+  ModelTurn? previous;
   for (final turn in turns) {
-    if (turn is NamedToolsDefined) {
-      for (final n in turn.names) {
-        if (!stillNamed.remove(n)) return '$n is not a tool known only by name';
-      }
+    switch (turn) {
+      case AgentCalledTools(:final calls):
+        unanswered.addAll([for (final c in calls) c.id]);
+      case ToolAnswered(:final callId):
+        unanswered.remove(callId);
+      case NamedToolsDefined(:final names):
+        // A provider takes a tool change only where a user message could go.
+        if (previous is! UserSaid && previous is! ToolAnswered) {
+          return 'tools are defined only after the person or a tool answer';
+        }
+        if (unanswered.isNotEmpty) {
+          return 'tools are defined only once every call is answered';
+        }
+        for (final n in names) {
+          if (!stillNamed.remove(n)) {
+            return '$n is not a tool known only by name';
+          }
+        }
+      case UserSaid() || AgentSaid():
+        break;
     }
+    previous = turn;
   }
   return null;
 }
@@ -223,6 +257,10 @@ String? _disclosureProblem(
 /// have to send it up front and only mark it hidden. Which named tools are
 /// defined by a given turn is what the [NamedToolsDefined] turns before it
 /// say, so the lists here never change within one conversation.
+///
+/// A turn may still call a tool known only by name: turns record what the
+/// model sent, mistakes included, and the loop answers such a call as it
+/// would an unknown name.
 final class ModelRequest {
   /// The request; a name offered twice, or a [NamedToolsDefined] naming a
   /// tool not still known only by name, is an [ArgumentError].
