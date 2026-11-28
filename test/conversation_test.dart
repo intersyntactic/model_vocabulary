@@ -186,6 +186,194 @@ void main() {
       );
     });
 
+    group('named tools', () {
+      OfferedTool tool(String name) => OfferedTool(
+        name: ToolName.of(name),
+        description: 'The $name tool.',
+        inputSchema: JsonObject.of({'type': 'object'}),
+      );
+
+      final named = ModelRequest(
+        tools: [tool('load_tools')],
+        namedTools: [tool('read_comments'), tool('read_equations')],
+        turns: [
+          const UserSaid('what do the reviewers say?'),
+          NamedToolsDefined([ToolName.of('read_comments')]),
+        ],
+      );
+
+      test('are the JSON the design names', () {
+        final j = JsonObject.decode(named.encode());
+        expect(j.objects('namedTools'), [
+          tool('read_comments').toJson(),
+          tool('read_equations').toJson(),
+        ]);
+        expect(j.objects('turns').last, {
+          'kind': 'namedToolsDefined',
+          'names': ['read_comments'],
+        });
+      });
+
+      test('read back to the same bytes', () {
+        final text = named.encode();
+        expect(ModelRequest.decode(text).encode(), text);
+      });
+
+      test('leave a request with none as it was', () {
+        expect(request.encode(), isNot(contains('namedTools')));
+        expect(
+          () => ModelRequest.decode('{"tools":[],"namedTools":[],"turns":[]}'),
+          throwsFormatException,
+        );
+      });
+
+      test('refuse a name offered twice, defined or named', () {
+        expect(
+          () => ModelRequest(
+            tools: [tool('a')],
+            namedTools: [tool('a')],
+            turns: [],
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => ModelRequest(tools: [tool('a'), tool('a')], turns: []),
+          throwsArgumentError,
+        );
+      });
+
+      test('refuse defining a tool not known only by name', () {
+        const go = UserSaid('go');
+        for (final turns in [
+          [
+            go,
+            NamedToolsDefined([ToolName.of('load_tools')]),
+          ],
+          [
+            go,
+            NamedToolsDefined([ToolName.of('nowhere')]),
+          ],
+          [
+            go,
+            NamedToolsDefined([ToolName.of('read_comments')]),
+            go,
+            NamedToolsDefined([ToolName.of('read_comments')]),
+          ],
+        ]) {
+          expect(
+            () => ModelRequest(
+              tools: [tool('load_tools')],
+              namedTools: [tool('read_comments')],
+              turns: turns,
+            ),
+            throwsA(
+              isA<ArgumentError>().having(
+                (e) => e.message,
+                'message',
+                contains('not a tool known only by name'),
+              ),
+            ),
+          );
+        }
+        expect(
+          () => ModelRequest.decode(
+            '{"tools":[],"turns":[{"kind":"user","text":"go"},'
+            '{"kind":"namedToolsDefined","names":["x"]}]}',
+          ),
+          throwsFormatException,
+        );
+      });
+
+      test('are defined only where a user message could go', () {
+        final defined = NamedToolsDefined([ToolName.of('read_comments')]);
+        final loadCall = AgentCalledTools(
+          text: '',
+          calls: [call('toolu_01A', 'load_tools', '{}')],
+        );
+        final answer = ToolAnswered(
+          callId: ToolCallId.parse('toolu_01A')!,
+          result: const ToolRan('loaded'),
+        );
+        ModelRequest at(List<ModelTurn> turns) => ModelRequest(
+          tools: [tool('load_tools')],
+          namedTools: [tool('read_comments')],
+          turns: turns,
+        );
+
+        expect(
+          at([const UserSaid('go'), loadCall, answer, defined]),
+          isNotNull,
+        );
+        for (final turns in [
+          [defined],
+          [const UserSaid('go'), const AgentSaid('ok'), defined],
+          [const UserSaid('go'), loadCall, defined, answer],
+          [
+            const UserSaid('go'),
+            AgentCalledTools(
+              text: '',
+              calls: [
+                call('toolu_01A', 'load_tools', '{}'),
+                call('toolu_01B', 'load_tools', '{}'),
+              ],
+            ),
+            answer,
+            defined,
+          ],
+        ]) {
+          expect(() => at(turns), throwsArgumentError, reason: '$turns');
+        }
+      });
+
+      test('may still be called, and the call is kept', () {
+        expect(
+          ModelRequest(
+            tools: [],
+            namedTools: [tool('read_comments')],
+            turns: [
+              const UserSaid('go'),
+              AgentCalledTools(
+                text: '',
+                calls: [call('toolu_01A', 'read_comments', '{}')],
+              ),
+            ],
+          ).turns,
+          hasLength(2),
+        );
+      });
+
+      test('refuse defining none, or one name twice', () {
+        expect(
+          () => NamedToolsDefined([
+            ToolName.of('read_comments'),
+            ToolName.of('read_comments'),
+          ]),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('listed once'),
+            ),
+          ),
+        );
+        expect(
+          () => ModelTurn.fromJson({
+            'kind': 'namedToolsDefined',
+            'names': ['a', 'a'],
+          }),
+          throwsFormatException,
+        );
+        expect(() => NamedToolsDefined([]), throwsArgumentError);
+        expect(
+          () => ModelTurn.fromJson({
+            'kind': 'namedToolsDefined',
+            'names': <String>[],
+          }),
+          throwsFormatException,
+        );
+      });
+    });
+
     test('refuses a turn that calls no tools', () {
       expect(
         () => ModelRequest.decode(
