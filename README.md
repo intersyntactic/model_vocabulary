@@ -34,12 +34,18 @@ void main() {
   answers that like any other unknown name. The input is the JSON text the
   driver encoded once, passed on byte for byte.
 - **`ModelTurn`**: `UserSaid`, `AgentSaid`, `AgentCalledTools` (at least
-  one call, with an optional `ProviderContinuation`) or `ToolAnswered`,
-  whose `ToolResult` is `ToolRan`, `ToolFailed` or `ToolRefused`.
-  `ToolRefused` means nothing ran.
-- **`ModelRequest`**: the `tools` offered and the `turns` so far, encoded
-  to the `request` text the airlock hashes. Equal requests encode to equal
-  bytes, so a replay matches.
+  one call, with an optional `ProviderContinuation`), `ToolAnswered`,
+  whose `ToolResult` is `ToolRan`, `ToolFailed` or `ToolRefused`, or
+  `NamedToolsDefined`. `ToolRefused` means nothing ran.
+- **`ModelRequest`**: the `tools` the model is shown in full, the
+  `namedTools` it knows only by name, and the `turns` so far, encoded to
+  the `request` text the airlock hashes. Equal requests encode to equal
+  bytes, so a replay matches. A named tool still carries its whole
+  definition; a `NamedToolsDefined` turn says where some become defined.
+  How a driver carries that out is its own business: Anthropic's can send
+  them all up front with `defer_loading` and add them with `tool_addition`,
+  while another can list the names in a prompt. Being defined grants
+  nothing.
 - **`ModelReply`**: `FinishedReply`, `CutOffReply`, or `ProposedToolCalls`
   (the model stopped to have tools run), each with its `ModelUsage`.
 - **`ProviderContinuation`**: provider items a call must be followed by,

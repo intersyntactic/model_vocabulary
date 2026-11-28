@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:checked_json/checked_json.dart';
 
+import 'names.dart';
 import 'offered_tool.dart';
 import 'only_keys.dart';
 import 'tool_call.dart';
@@ -82,6 +83,10 @@ sealed class ModelTurn {
       'callId': callId.value,
       'result': result.toJson(),
     }),
+    NamedToolsDefined(:final names) => .of({
+      'kind': 'namedToolsDefined',
+      'names': [for (final n in names) n.value],
+    }),
   };
 
   factory ModelTurn.fromJson(Object? json) {
@@ -120,10 +125,20 @@ sealed class ModelTurn {
               (throw JsonFieldException('callId', 'a tool call id')),
           result: ToolResult.fromJson(j.object('result')),
         );
+      case 'namedToolsDefined':
+        final j = objectOnly(json, 'a turn', const {'kind', 'names'});
+        final names = [
+          for (final n in j.strings('names'))
+            ToolName.parse(n) ??
+                (throw JsonFieldException('names', 'tool names')),
+        ];
+        if (names.isEmpty) throw JsonFieldException('names', 'not empty');
+        return NamedToolsDefined(names);
       default:
         throw JsonFieldException(
           'kind',
-          '"user", "agent", "agentCalledTools" or "toolAnswered"',
+          '"user", "agent", "agentCalledTools", "toolAnswered" or '
+              '"namedToolsDefined"',
         );
     }
   }
@@ -164,23 +179,81 @@ final class ToolAnswered extends ModelTurn {
   final ToolResult result;
 }
 
-/// What a model call's `request` text holds: the [tools] offered and the
-/// [turns] so far. Tools ride inside it so the airlock's hash of `request`
-/// covers what leaves the machine.
+/// From this turn on, the model is shown the full definitions of [names],
+/// never none, which until now it knew only by name. It grants nothing: what
+/// a tool may do is still the airlock's to decide.
+final class NamedToolsDefined extends ModelTurn {
+  NamedToolsDefined(List<ToolName> names)
+    : names = names.isEmpty
+          ? throw ArgumentError.value(names, 'names', 'no names')
+          : List.unmodifiable(names);
+
+  final List<ToolName> names;
+}
+
+/// What is wrong with offering [tools] in full and [namedTools] by name only
+/// across [turns], or null when nothing is: each name is offered once, and a
+/// [NamedToolsDefined] defines only a tool still known by name alone.
+String? _disclosureProblem(
+  List<OfferedTool> tools,
+  List<OfferedTool> namedTools,
+  List<ModelTurn> turns,
+) {
+  final seen = <ToolName>{};
+  for (final t in [...tools, ...namedTools]) {
+    if (!seen.add(t.name)) return '${t.name} is offered twice';
+  }
+  final stillNamed = {for (final t in namedTools) t.name};
+  for (final turn in turns) {
+    if (turn is NamedToolsDefined) {
+      for (final n in turn.names) {
+        if (!stillNamed.remove(n)) return '$n is not a tool known only by name';
+      }
+    }
+  }
+  return null;
+}
+
+/// What a model call's `request` text holds: the [tools] the model is shown
+/// in full, the [namedTools] it is told only the names of and may ask to
+/// have defined, and the [turns] so far. Tools ride inside it so the
+/// airlock's hash of `request` covers what leaves the machine.
+///
+/// A named tool carries its whole definition all the same: a driver may
+/// have to send it up front and only mark it hidden. Which named tools are
+/// defined by a given turn is what the [NamedToolsDefined] turns before it
+/// say, so the lists here never change within one conversation.
 final class ModelRequest {
-  ModelRequest({
+  /// The request; a name offered twice, or a [NamedToolsDefined] naming a
+  /// tool not still known only by name, is an [ArgumentError].
+  factory ModelRequest({
     required List<OfferedTool> tools,
+    List<OfferedTool> namedTools = const [],
     required List<ModelTurn> turns,
-  }) : tools = List.unmodifiable(tools),
-       turns = List.unmodifiable(turns);
+  }) => switch (_disclosureProblem(tools, namedTools, turns)) {
+    null => ModelRequest._(tools, namedTools, turns),
+    final problem => throw ArgumentError(problem),
+  };
+
+  ModelRequest._(
+    List<OfferedTool> tools,
+    List<OfferedTool> namedTools,
+    List<ModelTurn> turns,
+  ) : tools = List.unmodifiable(tools),
+      namedTools = List.unmodifiable(namedTools),
+      turns = List.unmodifiable(turns);
 
   final List<OfferedTool> tools;
+  final List<OfferedTool> namedTools;
   final List<ModelTurn> turns;
 
   /// The `request` text. Equal requests encode to equal bytes, since a
-  /// replay is matched byte for byte.
+  /// replay is matched byte for byte. With no [namedTools], the key is left
+  /// out, so a request with none encodes as one did before they existed.
   String encode() => jsonEncode({
     'tools': [for (final t in tools) t.toJson()],
+    if (namedTools.isNotEmpty)
+      'namedTools': [for (final t in namedTools) t.toJson()],
     'turns': [for (final t in turns) t.toJson()],
   });
 
@@ -189,11 +262,20 @@ final class ModelRequest {
     final j = objectOnly(
       decodeJsonRefusingDuplicateKeysAndUnsafeIntegers(text),
       'a model request',
-      const {'tools', 'turns'},
+      const {'tools', 'namedTools', 'turns'},
     );
-    return ModelRequest(
-      tools: [for (final t in j.objects('tools')) OfferedTool.fromJson(t)],
-      turns: [for (final t in j.list('turns')) ModelTurn.fromJson(t)],
-    );
+    final tools = [for (final t in j.objects('tools')) OfferedTool.fromJson(t)];
+    final namedTools = [
+      for (final t in j.objectsOrNull('namedTools') ?? const <JsonObject>[])
+        OfferedTool.fromJson(t),
+    ];
+    if (j.has('namedTools') && namedTools.isEmpty) {
+      throw JsonFieldException('namedTools', 'left out when there are none');
+    }
+    final turns = [for (final t in j.list('turns')) ModelTurn.fromJson(t)];
+    return switch (_disclosureProblem(tools, namedTools, turns)) {
+      null => ModelRequest._(tools, namedTools, turns),
+      final problem => throw FormatException(problem),
+    };
   }
 }

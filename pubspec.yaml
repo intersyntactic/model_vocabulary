@@ -3,7 +3,7 @@ description: >-
   The words a call to a language model is described in: the tools it is
   offered, the calls it proposes, the turns of the conversation, what it
   replies, and why it stopped. No provider's JSON, and no dart:io.
-version: 0.4.0
+version: 0.5.0
 repository: https://github.com/intersyntactic/model_vocabulary
 
 environment:

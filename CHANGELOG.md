@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0
+
+- **Breaking:** `ModelTurn` has a fifth case, `NamedToolsDefined`, so an
+  exhaustive switch over it needs a new arm.
+- `ModelRequest.namedTools`: tools the model is told only the names of,
+  each with its full definition, so a driver that hides a tool rather than
+  leaving it out (Anthropic's `defer_loading`) has what it must send. A
+  `NamedToolsDefined` turn marks where some of them become defined, in the
+  conversation rather than by changing the lists, so a driver can add them
+  without editing what it already sent. Neither grants anything.
+- `ModelRequest` refuses a name offered twice, and a `NamedToolsDefined`
+  naming a tool not still known only by name. A request with no named tools
+  encodes to the same bytes as before.
+
 ## 0.4.0
 
 - **Breaking:** on `checked_json` ^0.4.0. Every `JsonObject` this package
