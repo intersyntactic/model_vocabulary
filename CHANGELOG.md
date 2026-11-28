@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- **Breaking:** on `checked_json` ^0.4.0. Every `JsonObject` this package
+  hands out or takes, such as `OfferedTool.inputSchema`, `ToolInput.object`
+  and each `toJson`, can't be changed at any depth, and two of them are
+  equal when their fields are equal. A dependent has to move to
+  `checked_json` ^0.4.0 as well.
+
 ## 0.3.0
 
 - **Breaking:** on `checked_json` ^0.3.0. `ToolInput.parse`,
