@@ -3,7 +3,8 @@
 The words a call to a language model is described in: the tools it is
 offered and the calls it proposes, the turns of the conversation, what it
 replies and spends, how hard it is asked to work, and why it stopped. No
-provider's JSON, and no `dart:io`. It depends only on `checked_json` and `is_action_outcome_vocabulary`.
+provider's JSON, and no `dart:io`. It depends only on `checked_json` and
+`is_outcome_vocabulary`.
 
 The model only ever *proposes* a call. A driver returns the proposal, and
 the caller runs the action (after the airlock decides) and sends the result
@@ -60,7 +61,8 @@ void main() {
 - **`AsksTheModel`**: what a model driver implements. It takes a sign-in,
   a model, and the system prompt and request the airlock approved, verbatim,
   and returns an `Outcome<ModelReply>`, reporting each piece of the reply as
-  it streams. **`ModelCall`** is those four as the JSON sent to it.
+  it streams as a **`ReplyArriving`**, never recorded. **`ModelCall`** is
+  those four as the JSON sent to it.
 
 Every `fromJson` is strict: a key it doesn't expect is refused and named.
 - **`Effort`**: how hard a model is asked to work. Open, because providers

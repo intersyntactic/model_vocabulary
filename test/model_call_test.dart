@@ -67,6 +67,34 @@ void main() {
     });
   });
 
+  group('ReplyArriving', () {
+    test('keeps the JSON it had as a kind of Progress', () {
+      expect(jsonDecode(jsonEncode(const ReplyArriving('Hel').toJson())), {
+        'kind': 'replyArriving',
+        'text': 'Hel',
+      });
+      expect(
+        ReplyArriving.fromJson({'kind': 'replyArriving', 'text': 'lo'}).text,
+        'lo',
+      );
+    });
+
+    test('refuses another kind, or a key it does not expect', () {
+      for (final bad in <Object?>[
+        {'kind': 'printed', 'text': 'a line'},
+        {'kind': 'replyArriving', 'text': 'a', 'seq': 1},
+        {'kind': 'replyArriving'},
+        'not an object',
+      ]) {
+        expect(
+          () => ReplyArriving.fromJson(bad),
+          throwsFormatException,
+          reason: '$bad',
+        );
+      }
+    });
+  });
+
   group('ModelCall', () {
     const request = '{"tools":[],"turns":[{"kind":"user","text":"hello"}]}';
     final call = ModelCall(

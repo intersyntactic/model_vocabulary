@@ -26,8 +26,13 @@
   `decodeModelCall`, `ModelCall.fromJson` refuses a key it doesn't expect,
   so if `ModelCall` ever gains a field, the drivers must be deployed before
   the airlock sends it.
-- Depends on `is_action_outcome_vocabulary` ^0.1.0, for the `Outcome` and
-  `Report` that `AsksTheModel` speaks in.
+- `ReplyArriving`, a piece of the model's reply as it streams, moves here
+  from `is_effects`' `Progress`, keeping its JSON
+  `{"kind": "replyArriving", "text": ...}`. `AsksTheModel.askTheModel`
+  reports through `void Function(ReplyArriving piece)` rather than a
+  `Report` that could carry a program's printed line too.
+- Depends on `is_outcome_vocabulary` ^0.1.0, for the `Outcome` that
+  `AsksTheModel` returns.
 
 ## 0.4.0
 

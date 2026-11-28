@@ -1,5 +1,5 @@
 import 'package:checked_json/checked_json.dart';
-import 'package:is_action_outcome_vocabulary/is_action_outcome_vocabulary.dart';
+import 'package:is_outcome_vocabulary/is_outcome_vocabulary.dart';
 
 import 'model_names.dart';
 import 'model_reply.dart';
@@ -47,10 +47,31 @@ final class ModelCall {
   }
 }
 
+/// A piece of the model's reply as it arrives. Never recorded: only the
+/// whole reply, once the call is over, is kept.
+final class ReplyArriving {
+  const ReplyArriving(this.text);
+
+  final String text;
+
+  JsonObject toJson() => .of({'kind': 'replyArriving', 'text': text});
+
+  /// [json] as a piece of a reply; any other kind, or a key it doesn't
+  /// expect, is a [FormatException] naming the field.
+  factory ReplyArriving.fromJson(Object? json) {
+    final j = objectOnly(json, 'a piece of a reply', const {'kind', 'text'});
+    // wire-ok: this is the wire; fromJson pairs with toJson above
+    if (j.string('kind') != 'replyArriving') {
+      throw JsonFieldException('kind', '"replyArriving"');
+    }
+    return ReplyArriving(j.string('text'));
+  }
+}
+
 /// Calls the model. Holds every model sign-in: the model is outside the
 /// station, so the loop that proposes a call reaches it only through here,
 /// never directly. [systemPrompt] and [request] are each the exact bytes
-/// the airlock has approved, verbatim; [report] carries each
+/// the airlock has approved, verbatim; [report] is given each
 /// [ReplyArriving] piece as it streams, never recorded, until the whole
 /// [ModelReply] is. A reply cut off or proposing tools is still [Ran]:
 /// tokens were spent and a reply came back.
@@ -64,6 +85,6 @@ abstract interface class AsksTheModel {
     ModelName model,
     String systemPrompt,
     String request, {
-    required Report report,
+    required void Function(ReplyArriving piece) report,
   });
 }
